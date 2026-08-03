@@ -1,7 +1,23 @@
 # ======================================================================
-# CONFIGURATION
+# Configuration globale
 # ======================================================================
 
+import os
+import base64
+from datetime import datetime
+
+# Chemins
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+CSS_DIR = os.path.join(ASSETS_DIR, "css")
+IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
+LOGO_PATH = os.path.join(IMAGES_DIR, "logo.png")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+
+# Variables du procédé
 FEATURES = [
     "INPUT_NH3_FLOW",
     "INPUT_PHOS_ACID_FLOW_54",
@@ -14,8 +30,10 @@ TARGET = "PN RM"
 TARGET_OPTIMAL = 1.35
 TARGET_TOLERANCE = 0.02
 
+# Paramètres RandomForest
 RF_PARAMS = {"n_estimators": 200, "max_depth": 12, "random_state": 42, "n_jobs": -1}
 
+# Cartes des capteurs
 CARDS_CONFIG = [
     {"key": "INPUT_NH3_FLOW", "label": "NH3 Flow", "unit": "t/h", "icon": "💨"},
     {"key": "INPUT_PHOS_ACID_FLOW_54", "label": "Acide 54%", "unit": "m³/h", "icon": "🧪"},
@@ -25,6 +43,7 @@ CARDS_CONFIG = [
     {"key": "WASHING_LIQUID_FLOW", "label": "Eau de lavage", "unit": "m³/h", "icon": "💧"},
 ]
 
+# Couleurs
 COLORS = {
     "primary": "#00FF7F",
     "secondary": "#0A4A3A",
@@ -56,9 +75,38 @@ COLORS = {
 
 PLOTLY_TEMPLATE = "plotly_dark"
 
-# Chemins et autres constantes
-DB_PATH = "users.db"
+# Logo
+LOGO_FALLBACK_URL = "https://upload.wikimedia.org/wikipedia/commons/7/7e/Ocp-group.png"
+
+def load_logo_data_uri(path, fallback_url):
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+        ext = os.path.splitext(path)[1].lstrip(".").lower()
+        mime = "webp" if ext == "webp" else ("png" if ext == "png" else ext or "png")
+        b64 = base64.b64encode(raw).decode("utf-8")
+        return f"data:image/{mime};base64,{b64}"
+    except Exception:
+        return fallback_url
+
+LOGO_URL = load_logo_data_uri(LOGO_PATH, LOGO_FALLBACK_URL)
+
+# Authentification
+DB_PATH = os.path.join(BASE_DIR, "users.db")
 ROLES = ["Administrateur", "Ingénieur procédé", "Opérateur", "Visiteur"]
 MASTER_PASSWORD = "azertocp"
-LOGO_LOCAL_PATH = r"C:\Users\ABDEL\Downloads\pfe\ocp-logo-png_seeklogo-222172.webp"
-LOGO_FALLBACK_URL = "https://upload.wikimedia.org/wikipedia/commons/7/7e/Ocp-group.png"
+
+# Onglets et permissions
+TAB_DEFS = [
+    ("dashboard", "🟢 Command Center & Global Insights"),
+    ("prediction", "🤖 Prédiction & SHAP"),
+    ("analytics", "🌐 3D Analytics & Monitoring"),
+    ("settings", "👤 User Management"),
+]
+
+ROLE_PERMISSIONS = {
+    "Administrateur": {"dashboard", "prediction", "analytics", "settings"},
+    "Ingénieur procédé": {"dashboard", "prediction", "analytics"},
+    "Opérateur": {"dashboard", "analytics"},
+    "Visiteur": {"dashboard"},
+}

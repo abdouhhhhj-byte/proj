@@ -1,9 +1,15 @@
+# ======================================================================
+# Authentification (SQLite)
+# ======================================================================
+
 import sqlite3
 import hashlib
 import secrets
 import re
 from contextlib import contextmanager
 from datetime import datetime
+import streamlit as st
+
 from config import DB_PATH, ROLES, MASTER_PASSWORD
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -142,3 +148,77 @@ ROLE_ICONS = {
     "Opérateur": "🧑‍🏭",
     "Visiteur": "👁️",
 }
+
+def render_login_form():
+    st.caption("💡 Tout email valide est accepté — le mot de passe est celui de la plateforme.")
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("Email", placeholder="prenom.nom@ocpgroup.ma")
+        password = st.text_input("Mot de passe", type="password", placeholder="••••••••")
+        remember = st.checkbox("Se souvenir de moi")
+        submitted = st.form_submit_button("🔓 Se connecter", use_container_width=True, type="primary")
+
+    if submitted:
+        if not email or not password:
+            st.error("Veuillez renseigner votre email et votre mot de passe.")
+            return
+        if not EMAIL_RE.match(email.strip()):
+            st.error("Adresse email invalide.")
+            return
+        user = authenticate(email, password)
+        if user is None:
+            st.error("Mot de passe incorrect.")
+            return
+        st.session_state["auth_user"] = user
+        st.session_state["remember_me"] = remember
+        st.success(f"Bienvenue, {user['nom']} ({user['role']}) — connexion en cours...")
+        st.rerun()
+
+    st.markdown('<div class="auth-divider"><span>Pas encore de compte ?</span></div>', unsafe_allow_html=True)
+    if st.button("📝 Créer un compte", use_container_width=True, key="go_signup"):
+        st.session_state["auth_view"] = "signup"
+        st.rerun()
+
+def render_signup_form():
+    st.caption("💡 Le mot de passe de connexion est unique pour toute la plateforme — inutile de le définir ici.")
+    with st.form("signup_form", clear_on_submit=False):
+        nom = st.text_input("Nom complet")
+        email = st.text_input("Email professionnel", placeholder="prenom.nom@ocpgroup.ma")
+        department = st.selectbox(
+            "Département",
+            ["Production", "Maintenance", "Qualité", "R&D / Digital Twin", "HSE", "Logistique", "Direction"],
+        )
+        matricule = st.text_input("Matricule")
+        accept = st.checkbox("J'accepte les conditions d'utilisation")
+        submitted = st.form_submit_button("✅ Créer mon compte", use_container_width=True, type="primary")
+
+    if submitted:
+        errors = validate_signup(nom, email, department, matricule, accept)
+        if email_exists(email):
+            errors.append("Un compte existe déjà avec cet email.")
+        if errors:
+            for e in errors:
+                st.error(e)
+            return
+        role = "Administrateur" if count_users() == 0 else "Visiteur"
+        create_user(nom, email, department, matricule, role=role)
+        st.success(f"Compte créé avec succès ({role}). Connectez-vous avec le mot de passe de la plateforme.")
+        st.session_state["auth_view"] = "login"
+        st.rerun()
+
+    st.markdown('<div class="auth-divider"><span>Déjà inscrit ?</span></div>', unsafe_allow_html=True)
+    if st.button("🔓 Retour à la connexion", use_container_width=True, key="go_login"):
+        st.session_state["auth_view"] = "login"
+        st.rerun()
+
+def render_auth_screen(colors, logo_url):
+    from utils.helpers import inject_auth_css, render_header  # import local pour éviter boucle
+    inject_auth_css(colors, logo_url)
+    if "auth_view" not in st.session_state:
+        st.session_state["auth_view"] = "login"
+    st.markdown('<div class="auth-wrapper">', unsafe_allow_html=True)
+    render_header(colors, logo_url)
+    if st.session_state["auth_view"] == "login":
+        render_login_form()
+    else:
+        render_signup_form()
+    st.markdown('</div>', unsafe_allow_html=True)
